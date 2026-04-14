@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DnD Session Hub — Live Session</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { overflow: hidden; }
+
+    .call-page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #050403;
+    }
+
+    .call-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: linear-gradient(180deg, var(--bg-dark), transparent);
+      border-bottom: 1px solid var(--border-dim);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .call-brand {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      color: var(--gold-bright);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .call-title {
+      font-family: var(--font-heading);
+      font-size: 0.85rem;
+      color: var(--parchment-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .call-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Daily iframe fills the remaining space */
+    #daily-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      display: block;
+    }
+
+    .call-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: linear-gradient(0deg, var(--bg-dark), transparent);
+      border-top: 1px solid var(--border-dim);
+      flex-shrink: 0;
+    }
+
+    .control-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: var(--parchment-dim);
+      transition: all 0.2s;
+      font-family: var(--font-heading);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .control-btn:hover { border-color: var(--border-gold); color: var(--parchment); }
+    .control-btn.active { border-color: var(--blood-bright); color: var(--blood-bright); background: rgba(139,26,26,0.2); }
+    .control-btn .icon { font-size: 1.2rem; }
+
+    .leave-btn {
+      background: linear-gradient(180deg, #aa2222, var(--blood));
+      border-color: var(--blood-bright);
+      color: #fff;
+    }
+
+    .leave-btn:hover { box-shadow: 0 4px 16px rgba(139,26,26,0.5); }
+
+    .loading-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-void);
+      z-index: 100;
+    }
+
+    .loading-title {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      color: var(--gold-bright);
+      text-shadow: 0 0 30px rgba(240,192,96,0.5);
+      margin-bottom: 16px;
+    }
+
+    .loading-sub {
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 32px;
+    }
+
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border-dim);
+      border-top-color: var(--gold-mid);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .no-room {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-void);
+    }
+  </style>
+</head>
+<body>
+
+<div class="torch-glow torch-left"></div>
+<div class="torch-glow torch-right"></div>
+<div id="toast-container"></div>
+
+<!-- Loading -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-title">⚔ Summoning the Party</div>
+  <div class="loading-sub">Opening the dungeon portal...</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- No Room -->
+<div class="no-room hidden" id="no-room">
+  <div style="text-align:center;max-width:400px;padding:20px">
+    <div style="font-size:3rem;margin-bottom:16px">🚪</div>
+    <h2 style="font-family:var(--font-display);color:var(--gold-bright);margin-bottom:12px">No Active Session</h2>
+    <p style="color:var(--text-dim);margin-bottom:24px;font-style:italic">
+      The Dungeon Master has not yet opened the portal. Return to the lobby and await the call.
+    </p>
+    <a href="index.html"><button class="btn btn-gold btn-lg">⚔ Return to Lobby</button></a>
+  </div>
+</div>
+
+<!-- Call Page -->
+<div class="call-page hidden" id="call-page">
+  <div class="call-header">
+    <div class="call-brand">
+      ⚔ DnD Session Hub
+      <span class="badge badge-live"><span class="dot dot-live"></span> LIVE</span>
+    </div>
+    <div class="call-title" id="call-session-label">Dungeon Quest Session</div>
+    <div class="call-controls">
+      <span id="call-username" style="font-family:var(--font-heading);font-size:0.75rem;color:var(--parchment-dim)"></span>
+    </div>
+  </div>
+
+  <!-- Daily.co iframe -->
+  <iframe
+    id="daily-frame"
+    allow="camera; microphone; fullscreen; display-capture; autoplay"
+    allowfullscreen
+  ></iframe>
+
+  <div class="call-footer">
+    <button class="control-btn" onclick="goBack()">
+      <span class="icon">🏰</span>
+      Lobby
+    </button>
+    <button class="control-btn leave-btn" onclick="leaveSession()">
+      <span class="icon">🚪</span>
+      Leave
+    </button>
+  </div>
+</div>
+
+<script>
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+
+  function getParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      roomUrl: params.get('roomUrl'),
+      username: params.get('username') || 'Adventurer'
+    };
+  }
+
+  function goBack() {
+    window.location.href = 'index.html';
+  }
+
+  function leaveSession() {
+    if (confirm('Leave the session and return to lobby?')) {
+      window.location.href = 'index.html';
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const { roomUrl, username } = getParams();
+
+    document.getElementById('call-username').textContent = username;
+
+    if (!roomUrl) {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('no-room').classList.remove('hidden');
+      return;
+    }
+
+    // Build Daily URL with username pre-filled
+    const encodedName = encodeURIComponent(username);
+    const fullUrl = `${roomUrl}?userName=${encodedName}&showLeaveButton=true&iframeStyle=border%3Anone`;
+
+    // Load Daily frame
+    const frame = document.getElementById('daily-frame');
+    frame.src = fullUrl;
+
+    frame.onload = () => {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('call-page').classList.remove('hidden');
+    };
+
+    // Fallback timeout
+    setTimeout(() => {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('call-page').classList.remove('hidden');
+    }, 3000);
+  });
+</script>
+</body>
+</html>

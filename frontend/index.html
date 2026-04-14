@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DnD Session Hub — Tavern</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .lobby-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      width: 100%;
+      max-width: 1000px;
+    }
+    @media (max-width: 720px) {
+      .lobby-layout { grid-template-columns: 1fr; }
+    }
+    .queue-section { display: flex; flex-direction: column; gap: 16px; }
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 4px;
+      border: 1px solid var(--border-dim);
+      font-family: var(--font-heading);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+    }
+    .connection-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #666;
+      transition: background 0.3s;
+    }
+    .connection-dot.connected { background: var(--green-bright); box-shadow: 0 0 8px var(--green-bright); }
+    .my-status-card {
+      background: linear-gradient(135deg, rgba(138,101,32,0.1), rgba(0,0,0,0.3));
+      border: 1px solid var(--border-gold);
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .my-info { flex: 1; }
+    .my-name {
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      color: var(--gold-bright);
+      letter-spacing: 0.08em;
+    }
+    .my-role { font-size: 0.85rem; color: var(--text-dim); font-style: italic; }
+    .empty-queue {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ambient glows -->
+<div class="torch-glow torch-left"></div>
+<div class="torch-glow torch-right"></div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="page">
+  <div class="site-header">
+    <div class="site-logo">⚔ DnD Session Hub</div>
+    <div class="site-tagline">Enter the tavern. Await your quest.</div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🏰 Enter the Realm</span>
+      </div>
+      <div class="panel-body">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
+          <button class="tab-btn" onclick="switchAuthTab('register')">Create Account</button>
+        </div>
+
+        <!-- Login -->
+        <div id="tab-login" class="tab-content active">
+          <div id="login-error" class="alert alert-error hidden"></div>
+          <div class="form-group">
+            <label>Adventurer Name</label>
+            <input type="text" id="login-username" placeholder="Enter your name..." autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <button class="btn btn-gold btn-full btn-lg" onclick="doLogin()">⚔ Enter the Tavern</button>
+          <div class="divider">or</div>
+          <a href="dm.html"><button class="btn btn-ghost btn-full">🎲 Dungeon Master Portal</button></a>
+        </div>
+
+        <!-- Register -->
+        <div id="tab-register" class="tab-content">
+          <div id="register-error" class="alert alert-error hidden"></div>
+          <div class="form-group">
+            <label>Choose Your Name</label>
+            <input type="text" id="reg-username" placeholder="Adventurer name..." maxlength="24" />
+          </div>
+          <div class="form-group">
+            <label>Set Password</label>
+            <input type="password" id="reg-password" placeholder="Min 6 characters..." autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="reg-confirm" placeholder="Confirm password..." autocomplete="new-password" />
+          </div>
+          <button class="btn btn-gold btn-full btn-lg" onclick="doRegister()">📜 Create Account</button>
+        </div>
+
+        <div class="ornament mt-16">— ✦ —</div>
+        <p style="text-align:center;font-size:0.8rem;color:var(--text-muted);font-style:italic;">
+          All adventurers must register to join the queue
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="lobby-screen" class="page hidden">
+  <!-- Nav -->
+  <div style="width:100%;max-width:1000px;margin-bottom:16px;">
+    <div class="nav">
+      <span class="nav-brand">⚔ DnD Session Hub</span>
+      <div class="nav-user">
+        <div class="connection-dot" id="conn-dot"></div>
+        <span id="conn-label" style="color:var(--text-muted)">Connecting...</span>
+        <span>|</span>
+        <span id="nav-username" class="text-gold"></span>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Banner -->
+  <div style="width:100%;max-width:1000px;margin-bottom:16px;" id="session-banner-wrap">
+    <div class="session-banner">
+      <div>
+        <span style="font-family:var(--font-heading);font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim)">Session Invite Code</span><br>
+        <span class="invite-code" id="invite-code-display">——</span>
+      </div>
+      <div id="session-status-badge">
+        <span class="badge badge-waiting"><span class="dot dot-waiting"></span> Waiting</span>
+      </div>
+      <div id="session-active-alert" class="hidden">
+        <span class="badge badge-live"><span class="dot dot-live"></span> LIVE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="lobby-layout">
+    <!-- Queue + Status -->
+    <div class="queue-section">
+      <!-- My status -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">⚔ My Status</span>
+        </div>
+        <div class="panel-body">
+          <div class="my-status-card">
+            <div class="avatar avatar-lg" id="my-avatar">?</div>
+            <div class="my-info">
+              <div class="my-name" id="my-name-display">—</div>
+              <div class="my-role">Player Adventurer</div>
+            </div>
+            <div id="my-status-badge">
+              <span class="badge badge-waiting">Not in queue</span>
+            </div>
+          </div>
+
+          <div class="mt-12 flex gap-8">
+            <button class="btn btn-gold flex-1" id="join-btn" onclick="joinQueue()">⚔ Join Queue</button>
+            <button class="btn btn-ghost" id="leave-btn" onclick="leaveQueue()">Leave</button>
+          </div>
+
+          <div id="join-session-area" class="hidden mt-12">
+            <div class="alert alert-success">🎉 Session has started! Your portal awaits.</div>
+            <button class="btn btn-ember btn-full btn-lg" id="enter-call-btn" onclick="enterCall()">
+              🔮 Enter the Session
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Party Queue -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🧙 Session Queue</span>
+          <span id="queue-count" style="margin-left:auto;font-family:var(--font-heading);font-size:0.7rem;color:var(--text-dim)">0 adventurers</span>
+        </div>
+        <div class="panel-body">
+          <div class="section-label">Waiting</div>
+          <div id="queue-waiting-list">
+            <div class="empty-queue">No adventurers in queue yet</div>
+          </div>
+          <div class="section-label" style="margin-top:16px">In Session</div>
+          <div id="queue-session-list">
+            <div class="empty-queue" style="padding:12px 0">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tavern Chat -->
+    <div class="panel" style="height:fit-content">
+      <div class="panel-header">
+        <span class="panel-title">🍺 Tavern Chat</span>
+        <span id="online-count" style="margin-left:auto;font-family:var(--font-heading);font-size:0.7rem;color:var(--text-dim)">0 online</span>
+      </div>
+      <div class="panel-body">
+        <div class="chat-window" id="chat-window">
+          <div class="empty-queue">The tavern is quiet... be the first to speak.</div>
+        </div>
+        <div class="chat-input-row mt-12">
+          <input
+            type="text"
+            id="chat-input"
+            placeholder="Say something, adventurer..."
+            maxlength="300"
+            onkeydown="if(event.key==='Enter') sendChat()"
+          />
+          <button class="btn btn-gold" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
