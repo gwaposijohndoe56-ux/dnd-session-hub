@@ -4,7 +4,7 @@
 // For production: https://your-backend.onrender.com
 
 const CONFIG = {
-  BACKEND_URL: 'http://localhost:3001',
+  BACKEND_URL: 'https://dnd-session-hub.onrender.com',
   // Update this when you deploy the backend
 };
 
